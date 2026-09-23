@@ -20,6 +20,7 @@ find_package(Ceres REQUIRED)
 
 add_library(spline_tools
     src/spline_tools.cpp
+    src/so3_tools.cpp
 )
 
 target_include_directories(spline_tools PUBLIC
