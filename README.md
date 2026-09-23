@@ -6,3 +6,12 @@ Continuous Time INS Factor graph based on Cubic Basis Splines. This is my attemp
 
 ## Cumulative Splines
 
+# Dependencies
+
+As solving the factor graph is outside the scope of this work, we will use some external tools to actually solve the optimization problem. Initially, I was going to solve with GTSAM, as their ISAM2 tool is good and it is very useful for a variety of slam problems. However, I might try out ceres as it is a more general optimization tool and this is all pretty custom anyways. As such the following is the list of external dependencies for using ceres to do the CCBS Optimization piece:
+
+SuiteSparse: git clone https://github.com/DrTimothyAldenDavis/SuiteSparse.git on branch v7.5.0 Build options: cmake ..     -DCMAKE_BUILD_TYPE=Releasee     -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-12.6     -DSUITESPARSE_USE_CUDA=ON     -DBUILD_SHARED_LIBS=ON
+
+Ceres: git clone https://github.com/ceres-solver/ceres-solver.git on branch 2.2.0. Build options: cmake ..   -DCMAKE_BUILD_TYPE=Release   -DCMAKE_INSTALL_PREFIX=/usr/local   -DCMAKE_PREFIX_PATH=/usr/local   -DSUITESPARSE=ON   -DBUILD_EXAMPLES=OFF   -DBUILD_TESTING=OFF   -DBUILD_SHARED_LIBS=ON
+
+both of these should install to /usr/local with >> sudo make install 
