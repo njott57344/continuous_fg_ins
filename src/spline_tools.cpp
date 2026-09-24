@@ -136,4 +136,17 @@ bool evaluateRotationSpline(const std::vector<CtrlPt> &ctrl_pts, double &t_eval,
     return true;
   }
 }
+
+bool evaluateSplitSpline(const std::vector<CtrlPt> &ctrl_pts, double &t_eval,
+                         SplineEval &eval_spline) {
+  try {
+    evaluateTranslationSpline(ctrl_pts, t_eval, eval_spline);
+    evaluateRotationSpline(ctrl_pts, t_eval, eval_spline);
+
+    return true;
+  } catch (std::exception &e) {
+    std::cout << e.what() << std::endl;
+    return false;
+  }
+}
 }  // namespace CubicBasisSplines

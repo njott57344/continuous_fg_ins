@@ -46,6 +46,9 @@ bool evaluateTranslationSpline(const std::vector<CtrlPt>& ctrl_pts, double& t_ev
 bool evaluateRotationSpline(const std::vector<CtrlPt>& ctrl_pts, double& t_eval,
                             SplineEval& eval_spline);
 
+bool evaluateSplitSpline(const std::vector<CtrlPt>& ctrl_pts, double& t_eval,
+                         SplineEval& eval_spline);
+
 }  // namespace CubicBasisSplines
 
 #endif
