@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "spline_tools/so3_tools.hpp"
+
 namespace CubicBasisSplines {
 
 double calculateNormalizedTime(const double &t_i, const double &t_eval, const double &dt) {
@@ -43,6 +45,10 @@ bool evaluateTranslationSpline(const std::vector<CtrlPt> &ctrl_pts, double &t_ev
     double t_ip1 = P_ip1.t;
     double dt = t_ip1 - t_i;
 
+    if (dt <= 0.0) {
+      return false;
+    }
+
     double u = calculateNormalizedTime(t_i, t_eval, dt);
     current_weights = calculateWeights(u);
 
@@ -62,10 +68,10 @@ bool evaluateTranslationSpline(const std::vector<CtrlPt> &ctrl_pts, double &t_ev
                       current_weights.Btilde[2] * dp_ip1 + current_weights.Btilde[3] * dp_ip2;
 
     eval_spline.vel =
-        (1 / dt) * (current_weights.dBtilde[1] * dp_i + current_weights.dBtilde[2] * dp_ip1 +
-                    current_weights.dBtilde[3] * dp_ip2);
+        (1.0 / dt) * (current_weights.dBtilde[1] * dp_i + current_weights.dBtilde[2] * dp_ip1 +
+                      current_weights.dBtilde[3] * dp_ip2);
 
-    eval_spline.acc = (1 / std::pow(dt, 2)) *
+    eval_spline.acc = (1.0 / std::pow(dt, 2)) *
                       (current_weights.ddBtilde[1] * dp_i + current_weights.ddBtilde[2] * dp_ip1 +
                        current_weights.ddBtilde[3] * dp_ip2);
 
@@ -92,8 +98,42 @@ bool evaluateRotationSpline(const std::vector<CtrlPt> &ctrl_pts, double &t_eval,
     double t_ip1 = P_ip1.t;
     double dt = t_ip1 - t_i;
 
+    if (dt <= 0.0) {
+      return false;
+    }
+
     double u = calculateNormalizedTime(t_i, t_eval, dt);
     current_weights = calculateWeights(u);
+
+    Eigen::Matrix3d R_im1, R, R_ip1, R_ip2;
+    Eigen::Matrix3d delR_i, delR_ip1, delR_ip2;
+    Eigen::Vector3d Omega_i, Omega_ip1, Omega_ip2;
+    Eigen::Matrix3d A1, A2, A3;
+
+    R_im1 = P_im1.R;
+    R = P.R;
+    R_ip1 = P_ip1.R;
+    R_ip2 = P_ip2.R;
+
+    delR_i = (R_im1.transpose()) * R;
+    delR_ip1 = (R.transpose()) * R_ip1;
+    delR_ip2 = (R_ip1.transpose()) * R_ip2;
+
+    Omega_i = logm(delR_i);
+    Omega_ip1 = logm(delR_ip1);
+    Omega_ip2 = logm(delR_ip2);
+
+    A1 = expm(current_weights.Btilde[1] * Omega_i);
+    A2 = expm(current_weights.Btilde[2] * Omega_ip1);
+    A3 = expm(current_weights.Btilde[3] * Omega_ip2);
+
+    eval_spline.C_bw = R_im1 * A1 * A2 * A3;
+    eval_spline.w_bw = (current_weights.dBtilde[1] * ((A2 * A3).transpose()) * Omega_i +
+                        current_weights.dBtilde[2] * A3.transpose() * Omega_ip1 +
+                        current_weights.dBtilde[3] * Omega_ip2) *
+                       (1.0 / dt);
+
+    return true;
   }
 }
 }  // namespace CubicBasisSplines

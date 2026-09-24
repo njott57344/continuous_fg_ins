@@ -14,7 +14,7 @@ Eigen::Vector3d vee(const Eigen::Matrix3d& mat);
 
 Eigen::Matrix3d expm(const Eigen::Vector3d& vec);
 
-Eigen::Matrix3d logm(const Eigen::Matrix3d& mat);
+Eigen::Vector3d logm(const Eigen::Matrix3d& mat);
 
 }  // namespace CubicBasisSplines
 

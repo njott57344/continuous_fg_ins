@@ -28,26 +28,39 @@ Eigen::Vector3d vee(const Eigen::Matrix3d& mat) {
 }
 
 Eigen::Matrix3d expm(const Eigen::Vector3d& vec) {
-  Eigen::Matrix3d output;
-  Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
+  const double phi_sq = vec.squaredNorm();
+  const double phi = std::sqrt(phi_sq);
+  const Eigen::Matrix3d skew_vec = skew(vec);
 
-  double eps = 1e-4;
-
-  double phi = vec.norm();
-
-  Eigen::Matrix3d skew_vec;
-
-  skew_vec = skew(vec);
-
-  if (phi < eps) {
-    output = I3 + skew_vec;
+  double A, B;
+  if (phi < 1e-4) {
+    // Taylor expansion for small angles
+    A = 1.0 - phi_sq / 6.0;
+    B = 0.5 - phi_sq / 24.0;
   } else {
-    output = I3 + (std::sin(phi) / phi) * skew_vec +
-             ((1 - std::cos(phi)) / (phi * phi)) * (skew_vec * skew_vec);
+    A = std::sin(phi) / phi;
+    B = (1.0 - std::cos(phi)) / phi_sq;
   }
 
-  return output;
+  return Eigen::Matrix3d::Identity() + A * skew_vec + B * (skew_vec * skew_vec);
 }
 
-Eigen::Matrix3d logm(const Eigen::Matrix3d& mat) {}
+Eigen::Vector3d logm(const Eigen::Matrix3d& mat) {
+  // Clamp trace input to prevent acos domain errors
+  const double cos_theta = std::clamp((mat.trace() - 1.0) * 0.5, -1.0, 1.0);
+  const double theta = std::acos(cos_theta);
+  const double theta_sq = theta * theta;
+
+  const Eigen::Matrix3d skew_sym = 0.5 * (mat - mat.transpose());
+
+  double scale;
+  if (theta < 1e-4) {
+    // Taylor expansion: theta / sin(theta) ~ 1 + theta^2 / 6
+    scale = 1.0 + theta_sq / 6.0;
+  } else {
+    scale = theta / std::sin(theta);
+  }
+
+  return vee(scale * skew_sym);
+}
 }  // namespace CubicBasisSplines
