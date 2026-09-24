@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 3.4 REQUIRED)
 find_package(Ceres REQUIRED)
+find_package(Sophus REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Build Custom Shared/Static Library
@@ -31,6 +32,7 @@ target_include_directories(spline_tools PUBLIC
 target_link_libraries(spline_tools PUBLIC
     Eigen3::Eigen
     Ceres::ceres
+    Sophus::Sophus
 )
 
 target_compile_options(spline_tools PRIVATE

@@ -6,6 +6,8 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
+#include "sophus/so3.hpp"
+
 namespace CubicBasisSplines {
 
 const Eigen::Matrix4d C{
@@ -19,6 +21,12 @@ struct CtrlPt {
   Eigen::Vector3d p;
   Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   double t;
+};
+
+template <typename T>
+struct TemplatedCtrlPt {
+  T t;
+  Sophus::SO3<T> R;
 };
 
 struct Weights {

@@ -19,5 +19,4 @@ Ceres: git clone https://github.com/ceres-solver/ceres-solver.git on branch 2.2.
 Sophus: git clone https://github.com/strasdat/Sophus.git on main
 Build options: cmake .. -DCMAKE_BUILD_TYPE=Release
 
-all of these should install to /usr/local with >> sudo make install 
 all should be sudo make install (ed)
