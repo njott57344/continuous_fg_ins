@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+enable_testing()
+
 # ------------------------------------------------------------------------------
 # Find Dependencies
 # ------------------------------------------------------------------------------
@@ -14,6 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Eigen3 3.4 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(GTest REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Build Custom Shared/Static Library
@@ -40,7 +43,6 @@ target_compile_options(spline_tools PRIVATE
     -Wpedantic
     -O3
 )
-
 # ------------------------------------------------------------------------------
 # Build Executable
 # ------------------------------------------------------------------------------
@@ -52,3 +54,18 @@ add_executable(solve_basis_spline
 target_link_libraries(solve_basis_spline PRIVATE
     spline_tools
 )
+
+add_executable(test_gnss_factors 
+    src/test_gnss_factors.cpp
+)
+
+target_link_libraries(test_gnss_factors
+  PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    ceres
+    Sophus::Sophus
+    spline_tools
+)
+
+add_test(NAME test_gnss_factors COMMAND test_gnss_factors)
