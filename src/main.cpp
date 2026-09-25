@@ -1,7 +1,6 @@
 #include <iostream>
 
-#include "spline_tools/so3_tools.hpp"
-#include "spline_tools/spline_tools.hpp"
+#include "spline_tools/spline_eval.hpp"
 
 /*
 TODO:

@@ -20,8 +20,7 @@ find_package(Sophus REQUIRED)
 # ------------------------------------------------------------------------------
 
 add_library(spline_tools
-    src/spline_tools.cpp
-    src/so3_tools.cpp
+    src/spline_basis.cpp
 )
 
 target_include_directories(spline_tools PUBLIC
