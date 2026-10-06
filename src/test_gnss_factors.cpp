@@ -11,6 +11,16 @@
 
 #include "spline_tools/spline_factors.hpp"
 
+/*
+Unit Tests:
+
+1) We want to make sure that we can recover the actual pos,vel values given
+truth ctrl points,time (i.e. with zero noise,a known model our residuals are zero)
+This breaks down into 2 unit tests, one for position and one for velocity
+
+
+*/
+
 namespace CubicBasisSpline {
 namespace testing {}  // namespace testing
 }  // namespace CubicBasisSpline
