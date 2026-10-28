@@ -10,6 +10,9 @@
 
 namespace CubicBasisSpline {
 
+inline const Eigen::Matrix4d C =
+    (Eigen::Matrix4d() << 6, 0, 0, 0, 5, 3, -3, 1, 1, 3, 3, -2, 0, 0, 0, 1).finished();
+
 struct SplineEvaluation {
   gtsam::Point3 pos;
   gtsam::Rot3 orientation;
@@ -22,4 +25,7 @@ SplineEvaluation evaluateCubicBSpline(gtsam::Pose3& T_im1, gtsam::Pose3& T_i, gt
                                       gtsam::Pose3& T_ip2, double u);
 
 }  // namespace CubicBasisSpline
+
+Eigen::Matrix<double, 4, 3> calculateWeights(double u);
+
 #endif
