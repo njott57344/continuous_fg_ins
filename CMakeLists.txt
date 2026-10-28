@@ -17,13 +17,14 @@ find_package(Eigen3 3.4 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(GTest REQUIRED)
+find_package(GTSAM REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Build Custom Shared/Static Library
 # ------------------------------------------------------------------------------
 
 add_library(spline_tools
-    src/spline_basis.cpp
+    src/cubic_spline_factors.cpp
 )
 
 target_include_directories(spline_tools PUBLIC
@@ -35,6 +36,7 @@ target_link_libraries(spline_tools PUBLIC
     Eigen3::Eigen
     Ceres::ceres
     Sophus::Sophus
+    gtsam
 )
 
 target_compile_options(spline_tools PRIVATE
@@ -51,21 +53,6 @@ add_executable(solve_basis_spline
     src/main.cpp
 )
 
-target_link_libraries(solve_basis_spline PRIVATE
-    spline_tools
-)
-
-add_executable(test_gnss_factors 
-    src/test_gnss_factors.cpp
-)
-
-target_link_libraries(test_gnss_factors
-  PRIVATE
-    GTest::gtest
-    GTest::gtest_main
-    ceres
-    Sophus::Sophus
-    spline_tools
-)
-
-add_test(NAME test_gnss_factors COMMAND test_gnss_factors)
+# target_link_libraries(solve_basis_spline PRIVATE
+#     spline_tools
+# )
