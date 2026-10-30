@@ -19,4 +19,6 @@ Ceres: git clone https://github.com/ceres-solver/ceres-solver.git on branch 2.2.
 Sophus: git clone https://github.com/strasdat/Sophus.git on main
 Build options: cmake .. -DCMAKE_BUILD_TYPE=Release
 
+GTSAM: git clone https://github.com/borglab/gtsam.git on branch develop Build option: cmake -S ..   -B .   -DCMAKE_BUILD_TYPE=Release   -DCMAKE_INSTALL_PREFIX=/opt/slam_deps   -DGTSAM_BUILD_TESTS=OFF   -DGTSAM_BUILD_EXAMPLES=OFF   -DGTSAM_BUILD_PYTHON=OFF   -DGTSAM_USE_TBB=ON   -DGTSAM_USE_SYSTEM_EIGEN=ON   -DGTSAM_USE_SYSTEM_METIS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DGTSAM_ENABLE_CUDA=ON -DGTSAM_ENABLE_CUDSS=ON
+
 all should be sudo make install (ed)
