@@ -53,6 +53,6 @@ add_executable(solve_basis_spline
     src/main.cpp
 )
 
-# target_link_libraries(solve_basis_spline PRIVATE
-#     spline_tools
-# )
+target_link_libraries(solve_basis_spline PRIVATE
+    spline_tools
+)

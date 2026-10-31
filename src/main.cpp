@@ -1,3 +1,9 @@
 #include <iostream>
 
-int main() { return 0; }
+#include "spline_tools/cubic_spline_factors.hpp"
+
+int main() {
+  CubicBasisSpline::optimizeGnssTrajectory();
+
+  return 0;
+}

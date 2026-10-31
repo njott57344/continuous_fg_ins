@@ -23,9 +23,9 @@ bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval
     // Making Weight Vectors
     Eigen::Matrix<double, 4, 3> U = calculateWeights(ctrl_pts.u);
 
-    Eigen::Vector4d B = (1 / 6) * C * U.block<4, 1>(0, 0);
-    Eigen::Vector4d dB = (1 / 6) * C * U.block<4, 1>(0, 1);
-    Eigen::Vector4d ddB = (1 / 6) * C * U.block<4, 1>(0, 2);
+    Eigen::Vector4d B = (1.0 / 6.0) * C * U.block<4, 1>(0, 0);
+    Eigen::Vector4d dB = (1.0 / 6.0) * C * U.block<4, 1>(0, 1);
+    Eigen::Vector4d ddB = (1.0 / 6.0) * C * U.block<4, 1>(0, 2);
 
     // ===== R3 Spline Evaluation =====
 
@@ -77,8 +77,9 @@ bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval
   }
 }
 
-bool gnssFactor(SplineKnotSet& ctrl_pts, gtsam::Point3& pos, gtsam::Vector3& vel,
-                gtsam::Vector3& l_a, gtsam::Point3& residual_pos, gtsam::Vector3& residual_vel) {
+bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::Vector3& vel,
+                const gtsam::Vector3& l_a, gtsam::Point3& residual_pos,
+                gtsam::Vector3& residual_vel) {
   try {
     SplineEvaluation X;
     evaluateCubicBSpline(ctrl_pts, X);
@@ -113,4 +114,52 @@ Eigen::Matrix<double, 4, 3> calculateWeights(double u) {
 
   return U;
 }
+
+void optimizeGnssTrajectory() {
+  gtsam::NonlinearFactorGraph graph;
+  gtsam::Values initial_values;
+
+  double dT = 0.1;  // Knot interval (100ms)
+
+  // 1. Only add initial guesses for the control points used by your factors (T0 to T3)
+  for (int i = 0; i < 4; ++i) {
+    gtsam::Key key = gtsam::Symbol('T', i);
+    gtsam::Pose3 initial_pose(gtsam::Rot3::Identity(), gtsam::Point3(i * 1.0, 0.0, 0.0));
+    initial_values.insert(key, initial_pose);
+  }
+
+  // 2. Lock down the first two knots with a strong prior
+  auto prior_noise = gtsam::noiseModel::Isotropic::Sigma(6, 1e-3);
+  graph.add(gtsam::PriorFactor<gtsam::Pose3>(
+      gtsam::Symbol('T', 0), initial_values.at<gtsam::Pose3>(gtsam::Symbol('T', 0)), prior_noise));
+  graph.add(gtsam::PriorFactor<gtsam::Pose3>(
+      gtsam::Symbol('T', 1), initial_values.at<gtsam::Pose3>(gtsam::Symbol('T', 1)), prior_noise));
+
+  // 3. Add your CubicGnssFactor
+  auto gnss_noise = gtsam::noiseModel::Diagonal::Sigmas(
+      (gtsam::Vector(6) << 0.5, 0.5, 1.0, 0.1, 0.1, 0.2).finished());
+
+  gtsam::Point3 lever_arm(0.0, 0.0, 0.0);
+  double u = 0.5;
+  gtsam::Point3 measured_pos(1.5, 0.05, 0.0);
+  gtsam::Vector3 measured_vel(10.0, 0.0, 0.0);
+
+  graph.add(CubicGnssFactor(gtsam::Symbol('T', 0), gtsam::Symbol('T', 1), gtsam::Symbol('T', 2),
+                            gtsam::Symbol('T', 3), measured_pos, measured_vel, lever_arm, u, dT,
+                            gnss_noise));
+
+  // 4. Run the Optimizer
+  gtsam::LevenbergMarquardtOptimizer optimizer(graph, initial_values);
+  gtsam::Values result = optimizer.optimize();
+
+  std::cout << "Optimization complete! Iterations: " << optimizer.iterations() << std::endl;
+
+  // Print optimized poses to verify movement
+  for (int i = 0; i < 4; ++i) {
+    gtsam::Pose3 optimized_pose = result.at<gtsam::Pose3>(gtsam::Symbol('T', i));
+    std::cout << "T" << i << " translation: " << optimized_pose.translation().transpose()
+              << std::endl;
+  }
+}
+
 }  // namespace CubicBasisSpline
