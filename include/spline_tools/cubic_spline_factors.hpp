@@ -48,9 +48,9 @@ bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::
 bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval);
 
 class CubicGnssFactor
-    : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {
+    : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {
  public:
-  typedef gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> Base;
+  using Base = gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3>;
 
   CubicGnssFactor(gtsam::Key key_im1, gtsam::Key key_i, gtsam::Key key_ip1, gtsam::Key key_ip2,
                   const gtsam::Point3& z_pos, const gtsam::Vector3& z_vel, const gtsam::Point3& l_a,
@@ -64,80 +64,40 @@ class CubicGnssFactor
 
   gtsam::Vector evaluateError(const gtsam::Pose3& T_im1, const gtsam::Pose3& T_i,
                               const gtsam::Pose3& T_ip1, const gtsam::Pose3& T_ip2,
-                              boost::optional<gtsam::Matrix&> H1 = boost::none,
-                              boost::optional<gtsam::Matrix&> H2 = boost::none,
-                              boost::optional<gtsam::Matrix&> H3 = boost::none,
-                              boost::optional<gtsam::Matrix&> H4 = boost::none) const override {
-    SplineKnotSet ctrl_pts{T_im1, T_i, T_ip1, T_ip2, u_, dT_};
-    gtsam::Point3 res_pos;
-    gtsam::Vector3 res_vel;
-
-    gnssFactor(ctrl_pts, z_pos_, z_vel_, l_a_, res_pos, res_vel);
-    gtsam::Vector6 residual;
-    residual.head<3>() = res_pos;
-    residual.tail<3>() = res_vel;
+                              gtsam::OptionalMatrixType H1 = nullptr,
+                              gtsam::OptionalMatrixType H2 = nullptr,
+                              gtsam::OptionalMatrixType H3 = nullptr,
+                              gtsam::OptionalMatrixType H4 = nullptr) const override {
+    auto residualFn = [this](const gtsam::Pose3& a, const gtsam::Pose3& b, const gtsam::Pose3& c,
+                             const gtsam::Pose3& d) -> gtsam::Vector6 {
+      SplineKnotSet knots{a, b, c, d, u_, dT_};
+      gtsam::Point3 rp;
+      gtsam::Vector3 rv;
+      gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
+      gtsam::Vector6 res;
+      res.head<3>() = rp;
+      res.tail<3>() = rv;
+      return res;
+    };
 
     if (H1) {
-      *H1 = gtsam::numericalDerivative11<gtsam::Vector6, gtsam::Pose3>(
-          [this, &T_i, &T_ip1, &T_ip2](const gtsam::Pose3& T_im1_val) {
-            SplineKnotSet knots{T_im1_val, T_i, T_ip1, T_ip2, u_, dT_};
-            gtsam::Point3 rp;
-            gtsam::Vector3 rv;
-            gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
-            gtsam::Vector6 res;
-            res.head<3>() = rp;
-            res.tail<3>() = rv;
-            return res;
-          },
-          T_im1, 1e-5);
+      *H1 = gtsam::numericalDerivative41<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
+                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
     }
-
     if (H2) {
-      *H2 = gtsam::numericalDerivative11<gtsam::Vector6, gtsam::Pose3>(
-          [this, &T_im1, &T_ip1, &T_ip2](const gtsam::Pose3& T_i_val) {
-            SplineKnotSet knots{T_im1, T_i_val, T_ip1, T_ip2, u_, dT_};
-            gtsam::Point3 rp;
-            gtsam::Vector3 rv;
-            gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
-            gtsam::Vector6 res;
-            res.head<3>() = rp;
-            res.tail<3>() = rv;
-            return res;
-          },
-          T_i, 1e-5);
+      *H2 = gtsam::numericalDerivative42<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
+                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
     }
-
     if (H3) {
-      *H3 = gtsam::numericalDerivative11<gtsam::Vector6, gtsam::Pose3>(
-          [this, &T_im1, &T_i, &T_ip2](const gtsam::Pose3& T_ip1_val) {
-            SplineKnotSet knots{T_im1, T_i, T_ip1_val, T_ip2, u_, dT_};
-            gtsam::Point3 rp;
-            gtsam::Vector3 rv;
-            gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
-            gtsam::Vector6 res;
-            res.head<3>() = rp;
-            res.tail<3>() = rv;
-            return res;
-          },
-          T_ip1, 1e-5);
+      *H3 = gtsam::numericalDerivative43<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
+                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
     }
-
     if (H4) {
-      *H4 = gtsam::numericalDerivative11<gtsam::Vector6, gtsam::Pose3>(
-          [this, &T_im1, &T_i, &T_ip1](const gtsam::Pose3& T_ip2_val) {
-            SplineKnotSet knots{T_im1, T_i, T_ip1, T_ip2_val, u_, dT_};
-            gtsam::Point3 rp;
-            gtsam::Vector3 rv;
-            gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
-            gtsam::Vector6 res;
-            res.head<3>() = rp;
-            res.tail<3>() = rv;
-            return res;
-          },
-          T_ip2, 1e-5);
+      *H4 = gtsam::numericalDerivative44<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
+                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
     }
 
-    return residual;
+    return residualFn(T_im1, T_i, T_ip1, T_ip2);
   }
 
  private:
