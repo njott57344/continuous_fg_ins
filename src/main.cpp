@@ -3,7 +3,7 @@
 #include "spline_tools/cubic_spline_factors.hpp"
 
 int main() {
-  CubicBasisSpline::optimizeGnssTrajectory();
+  CubicBasisSpline::testGnssTrajectory();
 
   return 0;
 }

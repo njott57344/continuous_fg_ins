@@ -115,7 +115,7 @@ Eigen::Matrix<double, 4, 3> calculateWeights(double u) {
   return U;
 }
 
-void optimizeGnssTrajectory() {
+void testGnssTrajectory() {
   gtsam::NonlinearFactorGraph graph;
   gtsam::Values initial_values;
 

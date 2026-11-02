@@ -108,7 +108,7 @@ class CubicGnssFactor
   double dT_;
 };
 
-void optimizeGnssTrajectory();
+void testGnssTrajectory();
 
 }  // namespace CubicBasisSpline
 
