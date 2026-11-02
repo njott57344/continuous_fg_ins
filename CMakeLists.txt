@@ -25,6 +25,7 @@ find_package(GTSAM REQUIRED)
 
 add_library(spline_tools
     src/cubic_spline_factors.cpp
+    src/nav_utils.cpp
 )
 
 target_include_directories(spline_tools PUBLIC
