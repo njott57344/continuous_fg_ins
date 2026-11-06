@@ -41,8 +41,17 @@ then bring in the IMU
   for (int i = 0; i < num_a_measurements; i++) {
     CubicBasisSpline::SensorMeasurement current_a = rcvr_a[i];
 
+    // position
     Eigen::Vector3d lla_pos{current_a.pose_x, current_a.pose_y, current_a.pose_z};
     Eigen::Vector3d ecef_pos = CubicBasisSpline::lla2Ecef(lla_pos);
+
+    // position covariance
+    Eigen::Matrix3d lla_cov = Eigen::Matrix3d::Zero();
+    lla_cov(0, 0) = current_a.pose_covariance[0];
+    lla_cov(1, 1) = current_a.pose_covariance[3];
+    lla_cov(2, 2) = current_a.pose_covariance[6];
+
+    Eigen::Matrix3d ecef_cov = CubicBasisSpline::rotateLLaToEcef(lla_pos, lla_cov);
 
     Eigen::Vector3d ned_vel{current_a.linear_x, current_a.linear_y, current_a.linear_z};
   }
