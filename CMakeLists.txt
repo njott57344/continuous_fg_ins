@@ -14,8 +14,6 @@ enable_testing()
 # ------------------------------------------------------------------------------
 
 find_package(Eigen3 3.4 REQUIRED)
-find_package(Ceres REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(GTest REQUIRED)
 find_package(GTSAM REQUIRED)
 
@@ -35,8 +33,6 @@ target_include_directories(spline_tools PUBLIC
 
 target_link_libraries(spline_tools PUBLIC
     Eigen3::Eigen
-    Ceres::ceres
-    Sophus::Sophus
     gtsam
 )
 
