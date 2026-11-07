@@ -49,6 +49,29 @@ Eigen::Matrix3d rotateLLaToEcef(const Eigen::Vector3d& lla, const Eigen::Matrix3
   return Recef;
 }
 
+Eigen::Vector3d lla2EcefVel(const Eigen::Vector3d& v_ned, const Eigen::Vector3d& lla) {
+  Eigen::Matrix3d C = Eigen::Matrix3d::Identity();
+
+  double lat, lon;
+
+  lat = lla[0] * M_PI / 180.0;
+  lon = lla[1] * M_PI / 180.0;
+
+  C(0, 0) = -std::sin(lat) * std::cos(lon);
+  C(0, 1) = -std::sin(lon);
+  C(0, 2) = -std::cos(lat) * std::cos(lon);
+
+  C(1, 0) = -std::sin(lat) * std::sin(lon);
+  C(1, 1) = std::cos(lon);
+  C(1, 2) = -std::cos(lat) * std::sin(lon);
+
+  C(2, 0) = std::cos(lat);
+  C(2, 1) = 0;
+  C(2, 2) = -std::sin(lat);
+
+  return C * v_ned;
+}
+
 double transverseRadiusOfCurvature(const double& lat) {
   double denom = 1 - pow(0.0818191908425, 2) * pow(sin(lat), 2);
   return 6378137.0 / sqrt(denom);
@@ -143,6 +166,9 @@ std::vector<SensorMeasurement> readOdometryCsv(const std::string& csv_filename) 
         m.publish_time_ns = std::stod(fields[2]);
         m.header_stamp_sec = static_cast<uint32_t>(std::stoul(fields[3]));
         m.header_stamp_nanosec = static_cast<uint32_t>(std::stoul(fields[4]));
+
+        m.timestamp = static_cast<double>(m.header_stamp_sec) +
+                      1e-9 * static_cast<double>(m.header_stamp_nanosec);
 
         m.header_frame_id = fields[5];
         m.child_frame_id = fields[6];

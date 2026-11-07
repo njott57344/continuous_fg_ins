@@ -3,6 +3,7 @@
 
 #include <array>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -17,6 +18,8 @@ namespace CubicBasisSpline {
 struct SensorMeasurement {
   double timestamp_ns;
   double timestamp_s;
+  double timestamp;
+
   double publish_time_ns;
   uint32_t header_stamp_sec;
   uint32_t header_stamp_nanosec;
@@ -35,6 +38,8 @@ struct SensorMeasurement {
 };
 
 Eigen::Vector3d lla2Ecef(const Eigen::Vector3d& lla);
+Eigen::Vector3d lla2EcefVel(const Eigen::Vector3d& v_ned, const Eigen::Vector3d& lla);
+
 Eigen::Matrix3d rotateLLaToEcef(const Eigen::Vector3d& lla, const Eigen::Matrix3d& Rlla);
 
 double transverseRadiusOfCurvature(const double& lat);
