@@ -18,10 +18,10 @@ int main() {
   then bring in the IMU
   */
   std::string gnss_a_merged =
-      "/home/njo0004/atr_data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_a.csv";
+      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/atr_data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
+      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::SensorMeasurement> rcvr_a =
       CubicBasisSpline::readOdometryCsv(gnss_a_merged);
@@ -30,6 +30,7 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   int num_a_measurements = rcvr_a.size();
+  int num_b_measurements = rcvr_b.size();
 
   // lever-arms from localization (nav point to rcvr's)
   Eigen::Vector3d l_a;
@@ -90,6 +91,7 @@ int main() {
     time_idx++;
   }
 
+  // adding gnss A
   for (int i = 0; i < num_a_measurements; i++) {
     CubicBasisSpline::SensorMeasurement current_a = rcvr_a[i];
 
@@ -147,6 +149,66 @@ int main() {
 
     graph.add(CubicBasisSpline::CubicGnssFactor(key_im1, key_i, key_ip1, key_ip2, ecef_pos,
                                                 ecef_vel, l_a, u, dT, gnss_noise));
+  }
+
+  // adding gnss b
+  for (int i = 0; i < num_b_measurements; i++) {
+    CubicBasisSpline::SensorMeasurement current_b = rcvr_b[i];
+
+    // position
+    Eigen::Vector3d lla_pos{current_b.pose_x, current_b.pose_y, current_b.pose_z};
+    Eigen::Vector3d ecef_pos = CubicBasisSpline::lla2Ecef(lla_pos);
+
+    // position covariance
+    Eigen::Matrix3d lla_cov = Eigen::Matrix3d::Zero();
+    lla_cov(0, 0) = current_b.pose_covariance[0];
+    lla_cov(1, 1) = current_b.pose_covariance[3];
+    lla_cov(2, 2) = current_b.pose_covariance[6];
+
+    Eigen::Matrix3d ecef_cov_p = CubicBasisSpline::rotateLLaToEcef(lla_pos, lla_cov);
+
+    // velocity
+    Eigen::Vector3d ned_vel{current_b.linear_x, current_b.linear_y, current_b.linear_z};
+    Eigen::Vector3d ecef_vel = CubicBasisSpline::lla2EcefVel(ned_vel, lla_pos);
+
+    // velocity covariance
+    Eigen::Matrix3d ned_cov = Eigen::Matrix3d::Zero();
+    ned_cov(0, 0) = current_b.twist_covariance[0];
+    ned_cov(1, 1) = current_b.twist_covariance[3];
+    ned_cov(2, 2) = current_b.twist_covariance[6];
+
+    Eigen::Matrix3d ecef_cov_v = CubicBasisSpline::rotateLLaToEcef(lla_pos, ned_cov);
+
+    auto gnss_noise = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << std::sqrt(ecef_cov_p(0, 0)), std::sqrt(ecef_cov_p(1, 1)),
+         std::sqrt(ecef_cov_p(2, 2)), 0.4, 0.4, 0.4)
+            .finished());
+
+    // adding measurement to graph
+    /*
+      1) We need to identify the set of control points we are working with (based on time of
+      measurement) 2) We need to take the data and put it in custom cubic b spline gnss factor
+      3) Solve?
+    */
+
+    double t_meas = current_b.timestamp;
+
+    // indices for keys for graph
+    int idx_t = findCtrlPtIdx(ctrl_pt_times, t_meas);
+    int idx_tm1 = idx_t - 1;
+    int idx_tp1 = idx_t + 1;
+    int idx_tp2 = idx_t + 2;
+
+    gtsam::Key key_im1 = gtsam::Symbol('T', idx_tm1);
+    gtsam::Key key_i = gtsam::Symbol('T', idx_t);
+    gtsam::Key key_ip1 = gtsam::Symbol('T', idx_tp1);
+    gtsam::Key key_ip2 = gtsam::Symbol('T', idx_tp2);
+
+    double time_t = ctrl_pt_times[idx_t];
+    double u = (t_meas - time_t) / dT;
+
+    graph.add(CubicBasisSpline::CubicGnssFactor(key_im1, key_i, key_ip1, key_ip2, ecef_pos,
+                                                ecef_vel, l_b, u, dT, gnss_noise));
   }
 
   gtsam::LevenbergMarquardtParams params;
