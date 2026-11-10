@@ -119,8 +119,8 @@ int main() {
     // imu biases to zero
     gtsam::Vector3 Z3 = gtsam::Vector3::Zero();
 
-    // initial_values.insert(key_w, Z3);
-    // initial_values.insert(key_f, Z3);
+    initial_values.insert(key_w, Z3);
+    initial_values.insert(key_f, Z3);
 
     bias_times.push_back(start_time_a + time_idx * dT_bias);
     time_idx++;
@@ -256,6 +256,15 @@ int main() {
     gtsam::Vector3 f_ib_b{curr_imu.f_y, curr_imu.f_x, -1 * curr_imu.f_z};
 
     double curr_time = curr_imu.timestamp;
+
+    // pose spline indices
+    int p_idx_t = findCtrlPtIdx(ctrl_pt_times, curr_time);
+    int p_idx_tm1 = p_idx_t - 1;
+    int p_idx_tp1 = p_idx_t + 1;
+    int p_idx_tp2 = p_idx_t + 2;
+
+    int time_p = ctrl_pt_times[p_idx_t];
+    double u_p = (curr_time - time_p) / dT;
   }
 
   gtsam::LevenbergMarquardtParams params;
