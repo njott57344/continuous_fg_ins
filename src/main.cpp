@@ -126,7 +126,7 @@ int main() {
   gtsam::Values initial_values;
 
   // pose b spline
-  double dT = 1.0 / 5.0;  // 5 Hz knot spacing
+  double dT = 1.0 / 10.0;  // 5 Hz knot spacing
 
   /*
     We need 2 control points before the first timestamp
