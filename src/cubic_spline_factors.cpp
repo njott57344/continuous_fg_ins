@@ -174,10 +174,10 @@ bool imuFactor(SplineKnotSet& ctrl_pts, FullBiasSet& bias_pts, const gtsam::Vect
 
     f_hat = X.lin_acc + ecef_gravity - 2 * C_ie_e * X.lin_vel;  // estimated IMU (in ecef frame)
 
-    residual_f = X.orientation.transpose() * f_hat - f_ib_b;
+    residual_f = X.orientation.transpose() * f_hat + B.b_a - f_ib_b;
 
     // angular rate
-    residual_w = (X.ang_vel - X.orientation.transpose() * CubicBasisSpline::w_e_) - w_ib_b;
+    residual_w = (X.ang_vel - X.orientation.transpose() * CubicBasisSpline::w_e_ + B.b_g) - w_ib_b;
 
     return true;
   } catch (std::exception& e) {
