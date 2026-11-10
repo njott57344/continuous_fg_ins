@@ -2,11 +2,14 @@
 #define CUBIC_SPLINE_FACTORS_HPP
 
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/linear/GaussianFactorGraph.h>
+#include <gtsam/linear/HessianFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/PriorFactor.h>
 
+#include "array"
 #include "eigen3/Eigen/Core"
 #include "eigen3/Eigen/Dense"
 #include "gtsam/base/numericalDerivative.h"
@@ -70,6 +73,10 @@ bool imuFactor(SplineKnotSet& ctrl_pts, FullBiasSet& bias_pts, const gtsam::Vect
 bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval);
 bool evaluateBiasSpline(FullBiasSet& ctrl_pts, BiasEvaluation& spline_eval);
 
+void gnssJacobians(const SplineKnotSet& knots, const gtsam::Vector3& l_a,
+                   std::array<gtsam::Matrix6, 4>& H);
+void imuPoseJacobians(const SplineKnotSet& knots, std::array<gtsam::Matrix6, 4>& H);
+
 class CubicGnssFactor
     : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {
  public:
@@ -91,36 +98,23 @@ class CubicGnssFactor
                               gtsam::OptionalMatrixType H2 = nullptr,
                               gtsam::OptionalMatrixType H3 = nullptr,
                               gtsam::OptionalMatrixType H4 = nullptr) const override {
-    auto residualFn = [this](const gtsam::Pose3& a, const gtsam::Pose3& b, const gtsam::Pose3& c,
-                             const gtsam::Pose3& d) -> gtsam::Vector6 {
-      SplineKnotSet knots{a, b, c, d, u_, dT_};
-      gtsam::Point3 rp;
-      gtsam::Vector3 rv;
-      gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv);
-      gtsam::Vector6 res;
-      res.head<3>() = rp;
-      res.tail<3>() = rv;
-      return res;
-    };
+    SplineKnotSet knots{T_im1, T_i, T_ip1, T_ip2, u_, dT_};
+    gtsam::Point3 rp;
+    gtsam::Vector3 rv;
+    if (!gnssFactor(knots, z_pos_, z_vel_, l_a_, rp, rv))
+      throw std::runtime_error("gnssFactor failed");
+    gtsam::Vector6 res;
+    res << rp, rv;
 
-    if (H1) {
-      *H1 = gtsam::numericalDerivative41<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
+    if (H1 || H2 || H3 || H4) {
+      std::array<gtsam::Matrix6, 4> H;
+      gnssJacobians(knots, l_a_, H);
+      if (H1) *H1 = H[0];
+      if (H2) *H2 = H[1];
+      if (H3) *H3 = H[2];
+      if (H4) *H4 = H[3];
     }
-    if (H2) {
-      *H2 = gtsam::numericalDerivative42<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
-    }
-    if (H3) {
-      *H3 = gtsam::numericalDerivative43<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
-    }
-    if (H4) {
-      *H4 = gtsam::numericalDerivative44<gtsam::Vector6, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                         gtsam::Pose3>(residualFn, T_im1, T_i, T_ip1, T_ip2, 1e-5);
-    }
-
-    return residualFn(T_im1, T_i, T_ip1, T_ip2);
+    return res;
   }
 
  private:
@@ -164,23 +158,21 @@ class CubicImuFactor : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose
     bias_set.knots_b_g = {b0.tail<3>(), b1.tail<3>(), b2.tail<3>(), b3.tail<3>()};
     bias_set.u = u_b_;  // normalized time on the BIAS grid
 
-    auto residualFn = [&](const gtsam::Pose3& a, const gtsam::Pose3& b, const gtsam::Pose3& c,
-                          const gtsam::Pose3& d) -> gtsam::Vector6 {
-      SplineKnotSet knots{a, b, c, d, u_p_, dT_p_};  // u on the POSE grid
-      gtsam::Vector3 rw = gtsam::Vector3::Zero(), rf = gtsam::Vector3::Zero();
-      FullBiasSet bs = bias_set;  // imuFactor takes non-const ref
-      if (!imuFactor(knots, bs, z_w_, z_f_, rw, rf)) throw std::runtime_error("imuFactor failed");
-      gtsam::Vector6 res;
-      res << rf, rw;
-      return res;
-    };
+    SplineKnotSet knots{T0, T1, T2, T3, u_p_, dT_p_};
+    gtsam::Vector3 rw = gtsam::Vector3::Zero(), rf = gtsam::Vector3::Zero();
+    FullBiasSet bs = bias_set;
+    if (!imuFactor(knots, bs, z_w_, z_f_, rw, rf)) throw std::runtime_error("imuFactor failed");
+    gtsam::Vector6 res;
+    res << rf, rw;
 
-    using P = gtsam::Pose3;
-    using V = gtsam::Vector6;
-    if (H1) *H1 = gtsam::numericalDerivative41<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
-    if (H2) *H2 = gtsam::numericalDerivative42<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
-    if (H3) *H3 = gtsam::numericalDerivative43<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
-    if (H4) *H4 = gtsam::numericalDerivative44<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
+    if (H1 || H2 || H3 || H4) {
+      std::array<gtsam::Matrix6, 4> H;
+      imuPoseJacobians(knots, H);
+      if (H1) *H1 = H[0];
+      if (H2) *H2 = H[1];
+      if (H3) *H3 = H[2];
+      if (H4) *H4 = H[3];
+    }
 
     // Bias is linear in the knots: b(u) = (1-B1)P0 + (B1-B2)P1 + (B2-B3)P2 + B3 P3
     if (H5 || H6 || H7 || H8) {
@@ -192,7 +184,7 @@ class CubicImuFactor : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose
       if (H8) *H8 = B[3] * I6;
     }
 
-    return residualFn(T0, T1, T2, T3);
+    return res;
   }
 
  private:
@@ -200,7 +192,33 @@ class CubicImuFactor : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose
   double u_p_, dT_p_, u_b_;
 };
 
-void testGnssTrajectory();
+class ImuWindowFactor : public gtsam::NonlinearFactor {
+ public:
+  using Sample = CubicBasisSpline::CubicImuFactor;
+  const std::vector<std::shared_ptr<Sample>>& samples() const { return samples_; }
+  explicit ImuWindowFactor(std::vector<std::shared_ptr<Sample>> samples)
+      : gtsam::NonlinearFactor(samples.front()->keys()), samples_(std::move(samples)) {}
+
+  double error(const gtsam::Values& v) const override {
+    double e = 0;
+    for (auto& s : samples_) e += s->error(v);
+    return e;
+  }
+  size_t dim() const override { return 6 * samples_.size(); }
+
+  std::shared_ptr<gtsam::GaussianFactor> linearize(const gtsam::Values& v) const override {
+    gtsam::GaussianFactorGraph gfg;
+    for (auto& s : samples_) gfg.push_back(s->linearize(v));
+    return std::make_shared<gtsam::HessianFactor>(gfg);  // sums J^T J, J^T r, r^T r
+  }
+
+  gtsam::NonlinearFactor::shared_ptr clone() const override {
+    return std::make_shared<ImuWindowFactor>(*this);
+  }
+
+ private:
+  std::vector<std::shared_ptr<Sample>> samples_;
+};
 
 }  // namespace CubicBasisSpline
 
