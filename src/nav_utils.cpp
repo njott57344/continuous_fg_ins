@@ -118,8 +118,8 @@ std::array<double, 36> parseCovarianceString(std::string cov_str) {
   return cov;
 }
 
-std::vector<SensorMeasurement> readOdometryCsv(const std::string& csv_filename) {
-  std::vector<SensorMeasurement> measurements;
+std::vector<OdometryMeasurement> readOdometryCsv(const std::string& csv_filename) {
+  std::vector<OdometryMeasurement> measurements;
   std::ifstream file(csv_filename);
 
   if (!file.is_open()) {
@@ -159,7 +159,7 @@ std::vector<SensorMeasurement> readOdometryCsv(const std::string& csv_filename) 
         continue;  // Skip malformed or empty padding lines
       }
 
-      SensorMeasurement m{};
+      OdometryMeasurement m{};
       try {
         m.timestamp_ns = std::stod(fields[0]);
         m.timestamp_s = std::stod(fields[1]);
@@ -191,6 +191,80 @@ std::vector<SensorMeasurement> readOdometryCsv(const std::string& csv_filename) 
         m.angular_x = std::stod(fields[18]);
         m.angular_y = std::stod(fields[19]);
         m.angular_z = std::stod(fields[20]);
+
+        measurements.push_back(m);
+      } catch (const std::exception& e) {
+        // Silently catch or handle parsing exceptions
+      }
+    }
+  }
+
+  file.close();
+  return measurements;
+}
+
+std::vector<ImuMeasurement> readImuCsv(const std::string& csv_filename) {
+  std::vector<ImuMeasurement> measurements;
+  std::ifstream file(csv_filename);
+
+  if (!file.is_open()) {
+    std::cerr << "Error: Could not open file " << csv_filename << std::endl;
+    return measurements;
+  }
+
+  std::string line;
+  // Skip header row
+  if (!std::getline(file, line)) {
+    return measurements;
+  }
+
+  std::string accumulated_record = "";
+  int open_brackets = 0;
+
+  while (std::getline(file, line)) {
+    // Count brackets in the current line to track if we are inside a multiline covariance array
+    for (char c : line) {
+      if (c == '[') open_brackets++;
+      if (c == ']') open_brackets--;
+    }
+
+    if (!accumulated_record.empty()) {
+      accumulated_record += "\n" + line;
+    } else {
+      accumulated_record = line;
+    }
+
+    // Only process the record once all brackets are closed and we aren't splitting mid-row
+    if (open_brackets <= 0) {
+      open_brackets = 0;  // safety clamp
+      std::vector<std::string> fields = parseCSVLine(accumulated_record);
+      accumulated_record.clear();  // Reset for the next record
+
+      if (fields.size() < 21) {
+        continue;  // Skip malformed or empty padding lines
+      }
+
+      ImuMeasurement m{};
+      try {
+        m.timestamp_ns = std::stod(fields[0]);
+        m.timestamp_s = std::stod(fields[1]);
+        m.publish_time_ns = std::stod(fields[2]);
+        m.header_stamp_sec = static_cast<uint32_t>(std::stoul(fields[3]));
+        m.header_stamp_nanosec = static_cast<uint32_t>(std::stoul(fields[4]));
+
+        m.timestamp = static_cast<double>(m.header_stamp_sec) +
+                      1e-9 * static_cast<double>(m.header_stamp_nanosec);
+
+        m.header_frame_id = fields[5];
+        m.child_frame_id = fields[6];
+
+        m.w_x = std::stod(fields[11]);
+        m.w_y = std::stod(fields[12]);
+        m.w_z = std::stod(fields[13]);
+
+        m.f_x = std::stod(fields[15]);
+        m.f_y = std::stod(fields[16]);
+        m.f_z = std::stod(fields[17]);
 
         measurements.push_back(m);
       } catch (const std::exception& e) {

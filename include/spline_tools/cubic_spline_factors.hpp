@@ -45,6 +45,9 @@ bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::
                 const gtsam::Vector3& l_a, gtsam::Point3& residual_pos,
                 gtsam::Vector3& residual_vel);
 
+bool imuFactor(SplineKnotSet& ctrl_pts, const gtsam::Vector3& w_ib_b, const gtsam::Vector3& f_ib_b,
+               gtsam::Vector3& residual_w, gtsam::Vector3& residual_f);
+
 bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval);
 
 class CubicGnssFactor

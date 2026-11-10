@@ -23,11 +23,19 @@ int main() {
   std::string gnss_b_merged =
       "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
 
-  std::vector<CubicBasisSpline::SensorMeasurement> rcvr_a =
+  std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
       CubicBasisSpline::readOdometryCsv(gnss_a_merged);
 
-  std::vector<CubicBasisSpline::SensorMeasurement> rcvr_b =
+  std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_b =
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
+
+  std::string imu_a_file =
+      "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_a_imu_data_raw.csv";
+  std::string imu_b_file =
+      "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_b_imu_data_raw.csv";
+
+  std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
+  std::vector<CubicBasisSpline::ImuMeasurement> imu_b = CubicBasisSpline::readImuCsv(imu_b_file);
 
   int num_a_measurements = rcvr_a.size();
   int num_b_measurements = rcvr_b.size();
@@ -93,7 +101,7 @@ int main() {
 
   // adding gnss A
   for (int i = 0; i < num_a_measurements; i++) {
-    CubicBasisSpline::SensorMeasurement current_a = rcvr_a[i];
+    CubicBasisSpline::OdometryMeasurement current_a = rcvr_a[i];
 
     // position
     Eigen::Vector3d lla_pos{current_a.pose_x, current_a.pose_y, current_a.pose_z};
@@ -153,7 +161,7 @@ int main() {
 
   // adding gnss b
   for (int i = 0; i < num_b_measurements; i++) {
-    CubicBasisSpline::SensorMeasurement current_b = rcvr_b[i];
+    CubicBasisSpline::OdometryMeasurement current_b = rcvr_b[i];
 
     // position
     Eigen::Vector3d lla_pos{current_b.pose_x, current_b.pose_y, current_b.pose_z};

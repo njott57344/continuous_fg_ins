@@ -100,6 +100,30 @@ bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::
   }
 }
 
+bool imuFactor(SplineKnotSet& ctrl_pts, const gtsam::Vectore& w_ib_b, const gtsam::Vector3& f_ib_b,
+               gtsam::Vector3& residual_w, gtsam::Vector3& residual_f) {
+  try {
+    SplineEvaluation X;
+    evaluateCubicBSpline(ctrl_pts, X);
+
+    /*
+    To evaluate specific force:
+    1) Gravity from pos (in ecef frame)
+    2) ecef frame accel and gravity addition
+    3) rotate into body frame
+    4) subtract for residual
+
+    To evaluate angular velocity
+    1) evaluate earth rotation terms
+    2) spline gives rotation rate of body w.r.t. ecef frame
+    3) need to account for frame mis-match? idk I need to write it out
+    */
+
+  } catch (std::exception& e) {
+    std::cout << e.what() << std::endl;
+  }
+}
+
 Eigen::Matrix<double, 4, 3> calculateWeights(double u) {
   Eigen::Matrix<double, 4, 3> U;
   Eigen::Vector4d b, db, ddb;
