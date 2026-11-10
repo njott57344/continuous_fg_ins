@@ -131,74 +131,73 @@ class CubicGnssFactor
   double dT_;
 };
 
-// TODO: Need multiple normalized times!
 class CubicImuFactor : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                                       gtsam::Pose3, gtsam::Vector6> {
+                                                       gtsam::Pose3, gtsam::Vector6, gtsam::Vector6,
+                                                       gtsam::Vector6, gtsam::Vector6> {
  public:
-  using Base = gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
-                                        gtsam::Vector6>;
+  using Base =
+      gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3,
+                               gtsam::Vector6, gtsam::Vector6, gtsam::Vector6, gtsam::Vector6>;
 
-  // bias variable layout: [b_a (3); b_g (3)]
-  CubicImuFactor(gtsam::Key key_im1, gtsam::Key key_i, gtsam::Key key_ip1, gtsam::Key key_ip2,
-                 gtsam::Key key_bias, const gtsam::Vector3& z_w, const gtsam::Vector3& z_f,
-                 double u, double dT, const gtsam::SharedNoiseModel& noise_model)
-      : Base(noise_model, key_im1, key_i, key_ip1, key_ip2, key_bias),
+  CubicImuFactor(gtsam::Key p_im1, gtsam::Key p_i, gtsam::Key p_ip1, gtsam::Key p_ip2,
+                 gtsam::Key b_im1, gtsam::Key b_i, gtsam::Key b_ip1, gtsam::Key b_ip2,
+                 const gtsam::Vector3& z_w, const gtsam::Vector3& z_f, double u_p, double dT_p,
+                 double u_b, const gtsam::SharedNoiseModel& noise_model)
+      : Base(noise_model, p_im1, p_i, p_ip1, p_ip2, b_im1, b_i, b_ip1, b_ip2),
         z_w_(z_w),
         z_f_(z_f),
-        u_(u),
-        dT_(dT) {}
+        u_p_(u_p),
+        dT_p_(dT_p),
+        u_b_(u_b) {}
 
-  gtsam::Vector evaluateError(const gtsam::Pose3& T_im1, const gtsam::Pose3& T_i,
-                              const gtsam::Pose3& T_ip1, const gtsam::Pose3& T_ip2,
-                              const gtsam::Vector6& bias, gtsam::OptionalMatrixType H1 = nullptr,
-                              gtsam::OptionalMatrixType H2 = nullptr,
-                              gtsam::OptionalMatrixType H3 = nullptr,
-                              gtsam::OptionalMatrixType H4 = nullptr,
-                              gtsam::OptionalMatrixType H5 = nullptr) const override {
-    auto residualFn = [this](const gtsam::Pose3& a, const gtsam::Pose3& b, const gtsam::Pose3& c,
-                             const gtsam::Pose3& d, const gtsam::Vector6& bias_) -> gtsam::Vector6 {
-      SplineKnotSet knots{a, b, c, d, u_, dT_};
+  gtsam::Vector evaluateError(
+      const gtsam::Pose3& T0, const gtsam::Pose3& T1, const gtsam::Pose3& T2,
+      const gtsam::Pose3& T3, const gtsam::Vector6& b0, const gtsam::Vector6& b1,
+      const gtsam::Vector6& b2, const gtsam::Vector6& b3, gtsam::OptionalMatrixType H1 = nullptr,
+      gtsam::OptionalMatrixType H2 = nullptr, gtsam::OptionalMatrixType H3 = nullptr,
+      gtsam::OptionalMatrixType H4 = nullptr, gtsam::OptionalMatrixType H5 = nullptr,
+      gtsam::OptionalMatrixType H6 = nullptr, gtsam::OptionalMatrixType H7 = nullptr,
+      gtsam::OptionalMatrixType H8 = nullptr) const override {
+    // bias knots -> FullBiasSet (b = [b_a; b_g])
+    FullBiasSet bias_set;
+    bias_set.knots_b_a = {b0.head<3>(), b1.head<3>(), b2.head<3>(), b3.head<3>()};
+    bias_set.knots_b_g = {b0.tail<3>(), b1.tail<3>(), b2.tail<3>(), b3.tail<3>()};
+    bias_set.u = u_b_;  // normalized time on the BIAS grid
 
-      gtsam::Vector3 ba = bias_.head<3>();
-      gtsam::Vector3 bg = bias_.tail<3>();
-      FullBiasSet bias_set;
-      bias_set.knots_b_a = BiasKnotSet{ba, ba, ba, ba};
-      bias_set.knots_b_g = BiasKnotSet{bg, bg, bg, bg};
-      bias_set.u = u_;
-
-      gtsam::Vector3 rw, rf;
-      imuFactor(knots, bias_set, z_w_, z_f_, rw, rf);
-
+    auto residualFn = [&](const gtsam::Pose3& a, const gtsam::Pose3& b, const gtsam::Pose3& c,
+                          const gtsam::Pose3& d) -> gtsam::Vector6 {
+      SplineKnotSet knots{a, b, c, d, u_p_, dT_p_};  // u on the POSE grid
+      gtsam::Vector3 rw = gtsam::Vector3::Zero(), rf = gtsam::Vector3::Zero();
+      FullBiasSet bs = bias_set;  // imuFactor takes non-const ref
+      if (!imuFactor(knots, bs, z_w_, z_f_, rw, rf)) throw std::runtime_error("imuFactor failed");
       gtsam::Vector6 res;
-      res.head<3>() = rf;  // specific force
-      res.tail<3>() = rw;  // angular rate
+      res << rf, rw;
       return res;
     };
 
     using P = gtsam::Pose3;
     using V = gtsam::Vector6;
-    if (H1)
-      *H1 = gtsam::numericalDerivative51<V, P, P, P, P, V>(residualFn, T_im1, T_i, T_ip1, T_ip2,
-                                                           bias, 1e-5);
-    if (H2)
-      *H2 = gtsam::numericalDerivative52<V, P, P, P, P, V>(residualFn, T_im1, T_i, T_ip1, T_ip2,
-                                                           bias, 1e-5);
-    if (H3)
-      *H3 = gtsam::numericalDerivative53<V, P, P, P, P, V>(residualFn, T_im1, T_i, T_ip1, T_ip2,
-                                                           bias, 1e-5);
-    if (H4)
-      *H4 = gtsam::numericalDerivative54<V, P, P, P, P, V>(residualFn, T_im1, T_i, T_ip1, T_ip2,
-                                                           bias, 1e-5);
-    if (H5)
-      *H5 = gtsam::numericalDerivative55<V, P, P, P, P, V>(residualFn, T_im1, T_i, T_ip1, T_ip2,
-                                                           bias, 1e-5);
+    if (H1) *H1 = gtsam::numericalDerivative41<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
+    if (H2) *H2 = gtsam::numericalDerivative42<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
+    if (H3) *H3 = gtsam::numericalDerivative43<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
+    if (H4) *H4 = gtsam::numericalDerivative44<V, P, P, P, P>(residualFn, T0, T1, T2, T3, 1e-5);
 
-    return residualFn(T_im1, T_i, T_ip1, T_ip2, bias);
+    // Bias is linear in the knots: b(u) = (1-B1)P0 + (B1-B2)P1 + (B2-B3)P2 + B3 P3
+    if (H5 || H6 || H7 || H8) {
+      Eigen::Vector4d B = (1.0 / 6.0) * C * calculateWeights(u_b_).col(0);
+      const gtsam::Matrix6 I6 = gtsam::Matrix6::Identity();
+      if (H5) *H5 = (1.0 - B[1]) * I6;
+      if (H6) *H6 = (B[1] - B[2]) * I6;
+      if (H7) *H7 = (B[2] - B[3]) * I6;
+      if (H8) *H8 = B[3] * I6;
+    }
+
+    return residualFn(T0, T1, T2, T3);
   }
 
  private:
   gtsam::Vector3 z_w_, z_f_;
-  double u_, dT_;
+  double u_p_, dT_p_, u_b_;
 };
 
 void testGnssTrajectory();

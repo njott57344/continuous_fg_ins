@@ -279,9 +279,7 @@ std::vector<ImuMeasurement> readImuCsv(const std::string& csv_filename) {
       std::vector<std::string> fields = parseCSVLine(accumulated_record);
       accumulated_record.clear();  // Reset for the next record
 
-      if (fields.size() < 21) {
-        continue;  // Skip malformed or empty padding lines
-      }
+      if (fields.size() < 18) continue;
 
       ImuMeasurement m{};
       try {

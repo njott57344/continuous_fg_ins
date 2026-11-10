@@ -111,19 +111,9 @@ int main() {
   std::vector<double> bias_times;
 
   for (int i = 0; i < num_imu_pts; i++) {
-    gtsam::Key key_w = gtsam::Symbol('w', i);
-    gtsam::Key key_f = gtsam::Symbol('f', i);
-
-    double t_knot = start_time_a + time_idx * dT_bias;
-
-    // imu biases to zero
-    gtsam::Vector3 Z3 = gtsam::Vector3::Zero();
-
-    initial_values.insert(key_w, Z3);
-    initial_values.insert(key_f, Z3);
-
-    bias_times.push_back(start_time_a + time_idx * dT_bias);
-    time_idx++;
+    gtsam::Vector6 Z6 = gtsam::Vector6::Zero();
+    initial_values.insert(gtsam::Symbol('b', i), Z6);
+    bias_times.push_back(start_time_a + (i - 1) * dT_bias);
   }
 
   // adding gnss A
@@ -248,23 +238,29 @@ int main() {
 
   // adding imu a
   for (int i = 0; i < num_a_imu; i++) {
-    CubicBasisSpline::ImuMeasurement curr_imu = imu_a[i];
+    const auto& imu = imu_a[i];
+    double t = imu.timestamp;
+    if (t < start_time_a || t >= stop_time_a) continue;  // must lie inside the knot range
 
-    // putting in vehicle body frame
+    gtsam::Vector3 w_ib_b{imu.w_y, imu.w_x, -imu.w_z};
+    gtsam::Vector3 f_ib_b{imu.f_y, imu.f_x, -imu.f_z};
 
-    gtsam::Vector3 w_ib_b{curr_imu.w_y, curr_imu.w_x, -1 * curr_imu.w_z};
-    gtsam::Vector3 f_ib_b{curr_imu.f_y, curr_imu.f_x, -1 * curr_imu.f_z};
+    // pose spline
+    int ip = findCtrlPtIdx(ctrl_pt_times, t);
+    double u_p = (t - ctrl_pt_times[ip]) / dT;
 
-    double curr_time = curr_imu.timestamp;
+    // bias spline (own grid, own dT)
+    int ib = findCtrlPtIdx(bias_times, t);
+    double u_b = (t - bias_times[ib]) / dT_bias;
 
-    // pose spline indices
-    int p_idx_t = findCtrlPtIdx(ctrl_pt_times, curr_time);
-    int p_idx_tm1 = p_idx_t - 1;
-    int p_idx_tp1 = p_idx_t + 1;
-    int p_idx_tp2 = p_idx_t + 2;
+    auto imu_noise = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << 0.1, 0.1, 0.1, 0.4, 0.4, 0.4).finished());
 
-    int time_p = ctrl_pt_times[p_idx_t];
-    double u_p = (curr_time - time_p) / dT;
+    graph.add(CubicBasisSpline::CubicImuFactor(
+        gtsam::Symbol('T', ip - 1), gtsam::Symbol('T', ip), gtsam::Symbol('T', ip + 1),
+        gtsam::Symbol('T', ip + 2), gtsam::Symbol('b', ib - 1), gtsam::Symbol('b', ib),
+        gtsam::Symbol('b', ib + 1), gtsam::Symbol('b', ib + 2), w_ib_b, f_ib_b, u_p, dT, u_b,
+        imu_noise));
   }
 
   gtsam::LevenbergMarquardtParams params;
