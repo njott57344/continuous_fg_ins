@@ -18,10 +18,10 @@ int main() {
   then bring in the IMU
   */
   std::string gnss_a_merged =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_a.csv";
+      "/home/njo0004/atr_data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
+      "/home/njo0004/atr_data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
       CubicBasisSpline::readOdometryCsv(gnss_a_merged);
@@ -30,18 +30,18 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   std::string imu_a_file =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_a_imu_data_raw.csv";
+      "/home/njo0004/atr_data/putnam_run2_gnss_merged_0/sensors_novatel_a_imu_data_raw.csv";
   std::string imu_b_file =
       "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_b_imu_data_raw.csv";
 
   std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
-  std::vector<CubicBasisSpline::ImuMeasurement> imu_b = CubicBasisSpline::readImuCsv(imu_b_file);
+  // std::vector<CubicBasisSpline::ImuMeasurement> imu_b = CubicBasisSpline::readImuCsv(imu_b_file);
 
   int num_a_measurements = rcvr_a.size();
   int num_b_measurements = rcvr_b.size();
 
   int num_a_imu = imu_a.size();
-  int num_b_imu = imu_b.size();
+  // int num_b_imu = imu_b.size();
 
   // lever-arms from localization (nav point to rcvr's)
   Eigen::Vector3d l_a;
@@ -103,8 +103,28 @@ int main() {
     time_idx++;
   }
 
+  time_idx = -1;
+
   // bias b splines
   double dT_bias = 5.0;  // fairly sparse (biases don't change quickly)
+  int num_imu_pts = static_cast<int>(std::floor((stop_time_a - start_time_a) / dT_bias)) + 4;
+  std::vector<double> bias_times;
+
+  for (int i = 0; i < num_imu_pts; i++) {
+    gtsam::Key key_w = gtsam::Symbol('w', i);
+    gtsam::Key key_f = gtsam::Symbol('f', i);
+
+    double t_knot = start_time_a + time_idx * dT_bias;
+
+    // imu biases to zero
+    gtsam::Vector3 Z3 = gtsam::Vector3::Zero();
+
+    // initial_values.insert(key_w, Z3);
+    // initial_values.insert(key_f, Z3);
+
+    bias_times.push_back(start_time_a + time_idx * dT_bias);
+    time_idx++;
+  }
 
   // adding gnss A
   for (int i = 0; i < num_a_measurements; i++) {
@@ -230,7 +250,12 @@ int main() {
   for (int i = 0; i < num_a_imu; i++) {
     CubicBasisSpline::ImuMeasurement curr_imu = imu_a[i];
 
-    // need to put in vehicle body frame
+    // putting in vehicle body frame
+
+    gtsam::Vector3 w_ib_b{curr_imu.w_y, curr_imu.w_x, -1 * curr_imu.w_z};
+    gtsam::Vector3 f_ib_b{curr_imu.f_y, curr_imu.f_x, -1 * curr_imu.f_z};
+
+    double curr_time = curr_imu.timestamp;
   }
 
   gtsam::LevenbergMarquardtParams params;

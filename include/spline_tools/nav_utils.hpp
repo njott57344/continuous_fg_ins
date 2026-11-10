@@ -52,10 +52,31 @@ struct ImuMeasurement {
   double f_x, f_y, f_z;
 };
 
+// GPS Constants
+const double gps_pi = M_PI;  // PI
+const double GM = 3.986005 * pow(10, 14);
+const double F = -4.442807633 * pow(10, -10);
+const int half_week = 302400;                   // [s]
+const double c = 299792458.0;                   // [m/s] speed of light
+const double J2 = 1.082627 * pow(10, -3);       // J2 gravity constant (from Groves p. 72);
+const double mu_g = 3.986004418 * pow(10, 14);  // Earth gravity constant (from Goves p. 71)
+const double w_e = 7.292115 * pow(10, -5);      // rotation rate of earth [rad/s]
+inline const Eigen::Vector3d w_e_ = (Eigen::Vector3d() << 0, 0, w_e).finished();
+
+// Parameters of WGS84 Ellipsoid
+const double Ro = 6378137.0;       // WGS84 equatorial radius [m]
+const double e = 0.0818191908425;  // ecentricity of earth
+const double e2 = std::pow(e, 2);
+const double flattening = 1 / 298.257223563;
+const double Rp = 6356752.31425;  // WGS84 polar radius [m]
+const double A = 6378137.0;
+
 Eigen::Vector3d lla2Ecef(const Eigen::Vector3d& lla);
 Eigen::Vector3d lla2EcefVel(const Eigen::Vector3d& v_ned, const Eigen::Vector3d& lla);
 
 Eigen::Matrix3d rotateLLaToEcef(const Eigen::Vector3d& lla, const Eigen::Matrix3d& Rlla);
+
+Eigen::Vector3d ecefSomiglianaGravity(const Eigen::Vector3d& ecef_pos);
 
 double transverseRadiusOfCurvature(const double& lat);
 

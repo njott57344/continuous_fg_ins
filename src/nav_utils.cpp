@@ -13,11 +13,10 @@ Eigen::Vector3d lla2Ecef(const Eigen::Vector3d& lla) {
   alt = lla(2);
 
   double Re = transverseRadiusOfCurvature(lat);
-  double e2 = pow(0.0818191908425, 2);
 
   x = (Re + alt) * std::cos(lat) * std::cos(lon);
   y = (Re + alt) * std::cos(lat) * std::sin(lon);
-  z = ((1 - e2) * Re + alt) * sin(lat);
+  z = ((1 - CubicBasisSpline::e2) * Re + alt) * sin(lat);
 
   ecef << x, y, z;
   return ecef;
@@ -73,9 +72,10 @@ Eigen::Vector3d lla2EcefVel(const Eigen::Vector3d& v_ned, const Eigen::Vector3d&
 }
 
 double transverseRadiusOfCurvature(const double& lat) {
-  double denom = 1 - pow(0.0818191908425, 2) * pow(sin(lat), 2);
-  return 6378137.0 / sqrt(denom);
+  double denom = 1 - CubicBasisSpline::e2 * pow(sin(lat), 2);
+  return CubicBasisSpline::Ro / sqrt(denom);
 }
+
 std::vector<std::string> parseCSVLine(const std::string& line) {
   std::vector<std::string> fields;
   std::string field;
@@ -94,6 +94,45 @@ std::vector<std::string> parseCSVLine(const std::string& line) {
   }
   fields.push_back(field);
   return fields;
+}
+
+Eigen::Vector3d ecefSomiglianaGravity(const Eigen::Vector3d& ecef_pos) {
+  Eigen::Vector3d inner;
+  Eigen::Vector3d ecef_gravitation;
+  Eigen::Vector3d ecef_gravity;
+  Eigen::Matrix3d C;
+
+  double term_x, term_y, term_z, common_term;
+  double abs_pos = ecef_pos.norm();
+  double pos_3, R02, pos_2;
+  double outer_lump, inner_lump;
+
+  common_term = 5 * pow((ecef_pos[2] / abs_pos), 2);
+  term_x = (1 - common_term) * ecef_pos[0];
+  term_y = (1 - common_term) * ecef_pos[1];
+  term_z = (3 - common_term) * ecef_pos[2];
+
+  inner << term_x, term_y, term_z;
+
+  pos_3 = pow(abs_pos, 3);
+  pos_2 = pow(abs_pos, 2);
+  R02 = pow(Ro, 2);
+
+  outer_lump = mu_g / pos_3;            // lumped together constants
+  inner_lump = 1.5 * J2 * R02 / pos_2;  // lumped together constants
+
+  ecef_gravitation = -outer_lump * (ecef_pos + inner_lump * inner);
+
+  C.setZero();
+  C(0, 0) = 1;
+  C(1, 1) = 1;
+
+  if (ecef_pos.norm() == 0) {
+    ecef_gravity.setZero();
+  } else {
+    ecef_gravity = ecef_gravitation + w_e * w_e * C * ecef_pos;
+  }
+  return ecef_gravity;
 }
 
 // Helper to parse 36 elements from a covariance string (strips brackets and splits by whitespace)

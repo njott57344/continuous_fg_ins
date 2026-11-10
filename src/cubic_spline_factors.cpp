@@ -1,5 +1,7 @@
 #include "spline_tools/cubic_spline_factors.hpp"
 
+#include "spline_tools/nav_utils.hpp"
+
 namespace CubicBasisSpline {
 
 bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval) {
@@ -159,8 +161,28 @@ bool imuFactor(SplineKnotSet& ctrl_pts, FullBiasSet& bias_pts, const gtsam::Vect
     3) need to account for frame mis-match? idk I need to write it out
     */
 
+    // specific force
+    /*
+    estimate of imu measurement:
+
+    C(lin_acc + ecef_gravity)
+    */
+    Eigen::Vector3d ecef_gravity = CubicBasisSpline::ecefSomiglianaGravity(X.pos);
+    Eigen::Matrix3d C_ie_e = gtsam::skewSymmetric(CubicBasisSpline::w_e_);
+
+    gtsam::Vector3 f_hat;
+
+    f_hat = X.lin_acc + ecef_gravity - 2 * C_ie_e * X.lin_vel;  // estimated IMU (in ecef frame)
+
+    residual_f = X.orientation.transpose() * f_hat - f_ib_b;
+
+    // angular rate
+    residual_w = (X.ang_vel - X.orientation.transpose() * CubicBasisSpline::w_e_) - w_ib_b;
+
+    return true;
   } catch (std::exception& e) {
     std::cout << e.what() << std::endl;
+    return false;
   }
 }
 
