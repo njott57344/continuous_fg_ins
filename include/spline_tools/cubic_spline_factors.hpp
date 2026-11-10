@@ -41,14 +41,34 @@ struct SplineKnotSet {
   double dT;
 };
 
+struct BiasEvaluation {
+  gtsam::Vector3 b_g = gtsam::Vector3::Zero();
+  gtsam::Vector3 b_a = gtsam::Vector3::Zero();
+};
+
+struct BiasKnotSet {
+  gtsam::Vector3 P_im1;
+  gtsam::Vector3 P_i;
+  gtsam::Vector3 P_ip1;
+  gtsam::Vector3 P_ip2;
+};
+
+struct FullBiasSet {
+  BiasKnotSet knots_b_g;
+  BiasKnotSet knots_b_a;
+  double u;
+};
+
 bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::Vector3& vel,
                 const gtsam::Vector3& l_a, gtsam::Point3& residual_pos,
                 gtsam::Vector3& residual_vel);
 
-bool imuFactor(SplineKnotSet& ctrl_pts, const gtsam::Vector3& w_ib_b, const gtsam::Vector3& f_ib_b,
-               gtsam::Vector3& residual_w, gtsam::Vector3& residual_f);
+bool imuFactor(SplineKnotSet& ctrl_pts, FullBiasSet& bias_pts, const gtsam::Vector3& w_ib_b,
+               const gtsam::Vector3& f_ib_b, gtsam::Vector3& residual_w,
+               gtsam::Vector3& residual_f);
 
 bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval);
+bool evaluateBiasSpline(FullBiasSet& ctrl_pts, BiasEvaluation& spline_eval);
 
 class CubicGnssFactor
     : public gtsam::NoiseModelFactorN<gtsam::Pose3, gtsam::Pose3, gtsam::Pose3, gtsam::Pose3> {

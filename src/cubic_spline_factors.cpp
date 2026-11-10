@@ -77,6 +77,42 @@ bool evaluateCubicBSpline(SplineKnotSet& ctrl_pts, SplineEvaluation& spline_eval
   }
 }
 
+bool evaluateBiasSpline(FullBiasSet& ctrl_pts, BiasEvaluation& spline_eval) {
+  try {
+    gtsam::Vector3 w_im1 = ctrl_pts.knots_b_g.P_im1;
+    gtsam::Vector3 w_i = ctrl_pts.knots_b_g.P_i;
+    gtsam::Vector3 w_ip1 = ctrl_pts.knots_b_g.P_ip1;
+    gtsam::Vector3 w_ip2 = ctrl_pts.knots_b_g.P_ip2;
+
+    gtsam::Vector3 f_im1 = ctrl_pts.knots_b_a.P_im1;
+    gtsam::Vector3 f_i = ctrl_pts.knots_b_a.P_i;
+    gtsam::Vector3 f_ip1 = ctrl_pts.knots_b_a.P_ip1;
+    gtsam::Vector3 f_ip2 = ctrl_pts.knots_b_a.P_ip2;
+
+    Eigen::Matrix<double, 4, 3> U = calculateWeights(ctrl_pts.u);
+
+    Eigen::Vector4d B = (1.0 / 6.0) * C * U.block<4, 1>(0, 0);
+
+    // gyro bias
+    gtsam::Point3 dw1 = B[1] * (w_i - w_im1);
+    gtsam::Point3 dw2 = B[2] * (w_ip1 - w_i);
+    gtsam::Point3 dw3 = B[3] * (w_ip2 - w_ip1);
+
+    spline_eval.b_g = w_im1 + dw1 + dw2 + dw3;
+
+    gtsam::Point3 df1 = B[1] * (f_i - f_im1);
+    gtsam::Point3 df2 = B[2] * (f_ip1 - f_i);
+    gtsam::Point3 df3 = B[3] * (f_ip2 - f_ip1);
+
+    spline_eval.b_a = f_im1 + df1 + df2 + df3;
+
+    return true;
+  } catch (std::exception& e) {
+    std::cout << e.what() << std::endl;
+    return false;
+  }
+}
+
 bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::Vector3& vel,
                 const gtsam::Vector3& l_a, gtsam::Point3& residual_pos,
                 gtsam::Vector3& residual_vel) {
@@ -100,11 +136,15 @@ bool gnssFactor(SplineKnotSet& ctrl_pts, const gtsam::Point3& pos, const gtsam::
   }
 }
 
-bool imuFactor(SplineKnotSet& ctrl_pts, const gtsam::Vectore& w_ib_b, const gtsam::Vector3& f_ib_b,
-               gtsam::Vector3& residual_w, gtsam::Vector3& residual_f) {
+bool imuFactor(SplineKnotSet& ctrl_pts, FullBiasSet& bias_pts, const gtsam::Vector3& w_ib_b,
+               const gtsam::Vector3& f_ib_b, gtsam::Vector3& residual_w,
+               gtsam::Vector3& residual_f) {
   try {
     SplineEvaluation X;
+    BiasEvaluation B;
+
     evaluateCubicBSpline(ctrl_pts, X);
+    evaluateBiasSpline(bias_pts, B);
 
     /*
     To evaluate specific force:
