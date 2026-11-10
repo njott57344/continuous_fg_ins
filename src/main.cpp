@@ -40,6 +40,9 @@ int main() {
   int num_a_measurements = rcvr_a.size();
   int num_b_measurements = rcvr_b.size();
 
+  int num_a_imu = imu_a.size();
+  int num_b_imu = imu_b.size();
+
   // lever-arms from localization (nav point to rcvr's)
   Eigen::Vector3d l_a;
   Eigen::Vector3d l_b;
@@ -51,6 +54,7 @@ int main() {
   gtsam::NonlinearFactorGraph graph;
   gtsam::Values initial_values;
 
+  // pose b spline
   double dT = 1.0 / 5.0;  // 5 Hz knot spacing
 
   /*
@@ -98,6 +102,9 @@ int main() {
     ctrl_pt_times.push_back(start_time_a + time_idx * dT);
     time_idx++;
   }
+
+  // bias b splines
+  double dT_bias = 5.0;  // fairly sparse (biases don't change quickly)
 
   // adding gnss A
   for (int i = 0; i < num_a_measurements; i++) {
@@ -217,6 +224,13 @@ int main() {
 
     graph.add(CubicBasisSpline::CubicGnssFactor(key_im1, key_i, key_ip1, key_ip2, ecef_pos,
                                                 ecef_vel, l_b, u, dT, gnss_noise));
+  }
+
+  // adding imu a
+  for (int i = 0; i < num_a_imu; i++) {
+    CubicBasisSpline::ImuMeasurement curr_imu = imu_a[i];
+
+    // need to put in vehicle body frame
   }
 
   gtsam::LevenbergMarquardtParams params;
