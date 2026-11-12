@@ -1,4 +1,5 @@
 #include <gtsam/linear/GaussianBayesTree.h>
+#include <gtsam/linear/NoiseModel.h>
 #include <gtsam/slam/BetweenFactor.h>
 
 #include <algorithm>
@@ -77,6 +78,8 @@ void checkJacobians() {
          gtsam::numericalDerivative44<Vd, P, P, P, P>(fi, T[0], T[1], T[2], T[3], 1e-6));
 }
 
+// TODO: robust noise model
+
 int main() {
   // gemini script testing a random toy example
   // CubicBasisSpline::testGnssTrajectory();
@@ -89,11 +92,11 @@ int main() {
   // checkJacobians();
 
   std::string gnss_a_merged =
-      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
       "navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
       "navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
@@ -103,10 +106,10 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   std::string imu_a_file =
-      "/home/njo0004/data/lagunaseca_8_31_run2/"
-      "lagunaseca_8_31_run2_0/sensors_novatel_a_imu_data_raw.csv";
+      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
+      "sensors_novatel_a_imu_data_raw.csv";
   std::string imu_b_file =
-      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
       "sensors_novatel_b_imu_data_raw.csv";
 
   std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
@@ -206,6 +209,8 @@ int main() {
     bias_times.push_back(start_time_a + (i - 1) * dT_bias);
   }
 
+  auto m_estimator = gtsam::noiseModel::mEstimator::Tukey::Create(4.6851);
+
   // adding gnss A
   for (int i = 0; i < num_a_measurements; i++) {
     CubicBasisSpline::OdometryMeasurement current_a = rcvr_a[i];
@@ -238,6 +243,8 @@ int main() {
         (gtsam::Vector(6) << std::sqrt(ecef_cov_p(0, 0)), std::sqrt(ecef_cov_p(1, 1)),
          std::sqrt(ecef_cov_p(2, 2)), 0.4, 0.4, 0.4)
             .finished());
+
+    auto robust_noise = gtsam::noiseModel::Robust::Create(m_estimator, gnss_noise);
 
     // adding measurement to graph
     /*
@@ -300,6 +307,8 @@ int main() {
         (gtsam::Vector(6) << std::sqrt(ecef_cov_p(0, 0)), std::sqrt(ecef_cov_p(1, 1)),
          std::sqrt(ecef_cov_p(2, 2)), 0.4, 0.4, 0.4)
             .finished());
+
+    auto robust_noise = gtsam::noiseModel::Robust::Create(m_estimator, gnss_noise);
 
     // adding measurement to graph
     /*
