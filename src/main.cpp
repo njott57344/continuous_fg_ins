@@ -89,11 +89,11 @@ int main() {
   // checkJacobians();
 
   std::string gnss_a_merged =
-      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
@@ -103,10 +103,10 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   std::string imu_a_file =
-      "/home/njo0004/data/atr/lagunaseca_8_31_run2/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/"
       "lagunaseca_8_31_run2_0/sensors_novatel_a_imu_data_raw.csv";
   std::string imu_b_file =
-      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "sensors_novatel_b_imu_data_raw.csv";
 
   std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
