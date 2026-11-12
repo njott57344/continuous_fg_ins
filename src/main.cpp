@@ -388,19 +388,18 @@ int main() {
         imu_noise));
   }
 
-  // gtsam::Vector6 Z6 = gtsam::Vector6::Zero();
-  // auto bias_prior = gtsam::noiseModel::Diagonal::Sigmas(
-  //     (gtsam::Vector(6) << 0.5, 0.5, 0.5, 0.02, 0.02, 0.02).finished());  // loose absolute bound
-  // auto bias_rw = gtsam::noiseModel::Diagonal::Sigmas(
-  //     (gtsam::Vector(6) << 0.02, 0.02, 0.02, 0.002, 0.002, 0.002)
-  //         .finished());  // change per 5 s knot step
+  gtsam::Vector6 Z6 = gtsam::Vector6::Zero();
+  auto bias_prior = gtsam::noiseModel::Diagonal::Sigmas(
+      (gtsam::Vector(6) << 0.1, 0.1, 0.1, 0.005, 0.005, 0.005).finished());  // loose absolute bound
+  auto bias_rw = gtsam::noiseModel::Diagonal::Sigmas(
+      (gtsam::Vector(6) << 0.01, 0.01, 0.01, 0.001, 0.001, 0.001)
+          .finished());  // change per 5 s knot step
 
-  // for (int i = 0; i < num_imu_pts; i++)
-  //   graph.add(gtsam::PriorFactor<gtsam::Vector6>(gtsam::Symbol('b', i), Z6, bias_prior));
-  // for (int i = 0; i + 1 < num_imu_pts; i++)
-  //   graph.add(gtsam::BetweenFactor<gtsam::Vector6>(gtsam::Symbol('b', i), gtsam::Symbol('b', i +
-  //   1),
-  //                                                  Z6, bias_rw));
+  for (int i = 0; i < num_imu_pts; i++)
+    graph.add(gtsam::PriorFactor<gtsam::Vector6>(gtsam::Symbol('b', i), Z6, bias_prior));
+  for (int i = 0; i + 1 < num_imu_pts; i++)
+    graph.add(gtsam::BetweenFactor<gtsam::Vector6>(gtsam::Symbol('b', i), gtsam::Symbol('b', i + 1),
+                                                   Z6, bias_rw));
 
   for (auto& [key, samples] : windows)
     graph.push_back(std::make_shared<CubicBasisSpline::ImuWindowFactor>(std::move(samples)));
