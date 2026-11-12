@@ -89,10 +89,12 @@ int main() {
   // checkJacobians();
 
   std::string gnss_a_merged =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_a.csv";
+      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/navigation_merged_rcvr_b.csv";
+      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
       CubicBasisSpline::readOdometryCsv(gnss_a_merged);
@@ -101,9 +103,11 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   std::string imu_a_file =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_a_imu_data_raw.csv";
+      "/home/njo0004/data/atr/lagunaseca_8_31_run2/"
+      "lagunaseca_8_31_run2_0/sensors_novatel_a_imu_data_raw.csv";
   std::string imu_b_file =
-      "/home/njo0004/data/putnam_run2_gnss_merged_0/sensors_novatel_b_imu_data_raw.csv";
+      "/home/njo0004/data/atr/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
+      "sensors_novatel_b_imu_data_raw.csv";
 
   std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
   // std::vector<CubicBasisSpline::ImuMeasurement> imu_b = CubicBasisSpline::readImuCsv(imu_b_file);
@@ -133,8 +137,23 @@ int main() {
     We need 2 control points after the last timestamp
   */
 
-  double start_time_a = rcvr_a[0].timestamp;                      // start time of data
-  double stop_time_a = rcvr_a[num_a_measurements - 1].timestamp;  // stop time of data
+  if (rcvr_a.empty() || rcvr_b.empty() || imu_a.empty()) {
+    std::cerr << "empty input: A=" << rcvr_a.size() << " B=" << rcvr_b.size()
+              << " IMU=" << imu_a.size() << "\n";
+    return 1;
+  }
+  double start_time_a = std::max(rcvr_a.front().timestamp, rcvr_b.front().timestamp);
+  double stop_time_a = std::min(rcvr_a.back().timestamp, rcvr_b.back().timestamp);
+
+  std::cout << std::setprecision(15) << "A:   [" << rcvr_a.front().timestamp << ", "
+            << rcvr_a.back().timestamp << "]\n"
+            << "B:   [" << rcvr_b.front().timestamp << ", " << rcvr_b.back().timestamp << "]\n"
+            << "IMU: [" << imu_a.front().timestamp << ", " << imu_a.back().timestamp << "]\n"
+            << "used: [" << start_time_a << ", " << stop_time_a << "]\n";
+  if (stop_time_a <= start_time_a) {
+    std::cerr << "no overlap between receivers\n";
+    return 1;
+  }
 
   int num_ctrl_pts = static_cast<int>(std::floor((stop_time_a - start_time_a) / dT)) + 4;
 
@@ -229,6 +248,8 @@ int main() {
 
     double t_meas = current_a.timestamp;
 
+    if (t_meas < start_time_a || t_meas >= stop_time_a) continue;
+
     // indices for keys for graph
     int idx_t = findCtrlPtIdx(ctrl_pt_times, t_meas);
     int idx_tm1 = idx_t - 1;
@@ -288,6 +309,8 @@ int main() {
     */
 
     double t_meas = current_b.timestamp;
+
+    if (t_meas < start_time_a || t_meas >= stop_time_a) continue;
 
     // indices for keys for graph
     int idx_t = findCtrlPtIdx(ctrl_pt_times, t_meas);
