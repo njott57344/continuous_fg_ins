@@ -92,11 +92,11 @@ int main() {
   // checkJacobians();
 
   std::string gnss_a_merged =
-      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "navigation_merged_rcvr_a.csv";
 
   std::string gnss_b_merged =
-      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "navigation_merged_rcvr_b.csv";
 
   std::vector<CubicBasisSpline::OdometryMeasurement> rcvr_a =
@@ -106,10 +106,10 @@ int main() {
       CubicBasisSpline::readOdometryCsv(gnss_b_merged);
 
   std::string imu_a_file =
-      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "sensors_novatel_a_imu_data_raw.csv";
   std::string imu_b_file =
-      "/home/njo0004/atr_data/lagunaseca/lagunaseca_830_run1/lagunaseca_830_run1_0/"
+      "/home/njo0004/data/lagunaseca_8_31_run2/lagunaseca_8_31_run2_0/"
       "sensors_novatel_b_imu_data_raw.csv";
 
   std::vector<CubicBasisSpline::ImuMeasurement> imu_a = CubicBasisSpline::readImuCsv(imu_a_file);
@@ -418,7 +418,7 @@ int main() {
   gtsam::LevenbergMarquardtParams params;
   params.setVerbosityLM("SUMMARY");  // prints each lambda trial and its error
   params.setVerbosity("ERROR");
-  params.setMaxIterations(50);
+  params.setMaxIterations(100);
 
   gtsam::LevenbergMarquardtOptimizer optimizer(graph, initial_values, params);
   gtsam::Values result = optimizer.optimize();
@@ -483,5 +483,19 @@ int main() {
          << "start_time " << start_time_a << "\n";
   }
 
+  {
+    std::ofstream g("bias_spline.g20");
+    g << std::setprecision(17);
+    for (int i = 0; i < num_imu_pts; i++) {
+      gtsam::Vector6 b = result.at<gtsam::Vector6>(gtsam::Symbol('b', i));
+      g << "VERTEX_R6 " << i << " " << b[0] << " " << b[1] << " " << b[2] << " " << b[3] << " "
+        << b[4] << " " << b[5] << "\n";
+    }
+
+    std::ofstream meta("bias_spline_meta.txt");
+
+    meta << std::setprecision(17) << "dT " << dT_bias << "\n"
+         << "start_time " << start_time_a << "\n";
+  }
   return 0;
 }
